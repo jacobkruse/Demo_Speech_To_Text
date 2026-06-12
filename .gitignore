@@ -1,0 +1,14 @@
+# Môi trường ảo & IDE
+.venv/
+.idea/
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+
+# File audio test sinh tự động (tạo lại bằng TTS, xem README)
+test_audio.wav
+
+# Cache model Hugging Face (nếu lỡ đặt trong project)
+.cache/
