@@ -60,19 +60,36 @@ def transcribe(audio_path: str) -> str:
 
 
 if __name__ == "__main__":
+    import argparse
     import sys
     import time
+    from pathlib import Path
 
     # Console Windows mặc định dùng codepage cũ (cp1252) không in được tiếng Việt
     sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
-    if len(sys.argv) < 2:
-        print("Cách dùng: python transcriber.py <đường_dẫn_file_âm_thanh>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Phiên âm file âm thanh tiếng Việt bằng Whisper Large-v3"
+    )
+    parser.add_argument("audio", help="Đường dẫn file âm thanh (mp3/wav/m4a/flac/ogg...)")
+    parser.add_argument(
+        "-o", "--output",
+        help="Ghi văn bản kết quả ra file .txt (UTF-8), ngoài việc in ra console",
+    )
+    args = parser.parse_args()
 
-    print(f"Thiết bị: {get_device_info()}")
-    print("Đang load model (lần đầu sẽ tải ~3GB)...")
+    # Trạng thái in ra stderr để stdout chỉ chứa văn bản kết quả —
+    # tiện cho script/agent khác gọi và lấy kết quả trực tiếp
+    print(f"Thiết bị: {get_device_info()}", file=sys.stderr)
+    print("Đang load model (lần đầu sẽ tải ~3GB)...", file=sys.stderr)
     start = time.perf_counter()
-    text = transcribe(sys.argv[1])
+    text = transcribe(args.audio)
     elapsed = time.perf_counter() - start
-    print(f"\nKết quả ({elapsed:.1f}s):\n{text}")
+    print(f"Xong sau {elapsed:.1f}s", file=sys.stderr)
+
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+        print(f"Đã ghi kết quả vào: {args.output}", file=sys.stderr)
+
+    print(text)

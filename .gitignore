@@ -1,7 +1,7 @@
 # Môi trường ảo & IDE
 .venv/
 .idea/
-.claude/
+.claude/settings.local.json
 
 # Python
 __pycache__/
