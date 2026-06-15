@@ -17,7 +17,7 @@ Người dùng muốn đọc chính tả tiếng Việt bằng micro. Làm tuầ
 
 3. Đọc file `dictation_out.txt` để lấy văn bản kết quả.
    - Nếu file rỗng / không tồn tại, hoặc script báo "Không nghe rõ giọng" / "Không nghe thấy
-     giọng nói": báo người dùng nói to và rõ hơn, bắt đầu nói sớm hơn, rồi chạy lại `/ghiam`.
+     giọng nói": báo người dùng nói to và rõ hơn, bắt đầu nói sớm hơn, rồi chạy lại `/noi`.
    - Nếu người dùng nói "bắt không hết câu": gợi ý họ ngắt nghỉ ít hơn, hoặc lần sau dùng
      `!.venv/Scripts/python dictate.py --silence 3` để nới thời gian im lặng.
 
