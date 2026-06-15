@@ -135,6 +135,29 @@ def record_until_silence(silence_hang: float, max_duration: float,
     return np.concatenate(frames).flatten() if frames else np.zeros(0, np.float32)
 
 
+def list_input_devices() -> None:
+    """In các thiết bị thu (micro) kèm chỉ số để chọn bằng --device."""
+    default_in = sd.default.device[0]
+    print("Các micro (input) khả dụng:", file=sys.stderr)
+    for i, dev in enumerate(sd.query_devices()):
+        if dev["max_input_channels"] > 0:
+            mark = " (mặc định)" if i == default_in else ""
+            name = dev["name"].splitlines()[0]  # vài tên có xuống dòng
+            print(f"  [{i}] {name}{mark}", file=sys.stderr)
+
+
+def resolve_device(spec: str) -> int:
+    """Đổi --device (chỉ số hoặc một phần tên) thành chỉ số thiết bị."""
+    if spec.strip().lstrip("-").isdigit():
+        return int(spec)
+    spec_low = spec.lower()
+    for i, dev in enumerate(sd.query_devices()):
+        if dev["max_input_channels"] > 0 and spec_low in dev["name"].lower():
+            return i
+    raise SystemExit(f"Không tìm thấy micro khớp '{spec}'. "
+                     f"Chạy --list-devices để xem danh sách.")
+
+
 def record_seconds(seconds: float) -> np.ndarray:
     """Ghi âm cố định N giây."""
     print(f"🎙️  Đang ghi âm {seconds:g}s... NÓI đi.", file=sys.stderr)
@@ -158,7 +181,21 @@ def main() -> None:
                         help="Chờ tối đa bấy nhiêu giây để nghe thấy giọng (mặc định 15)")
     parser.add_argument("-o", "--output",
                         help="Ghi văn bản kết quả ra file .txt (UTF-8)")
+    parser.add_argument("--device",
+                        help="Chọn micro theo chỉ số hoặc một phần tên (vd 20 hoặc AirPods)")
+    parser.add_argument("--list-devices", action="store_true",
+                        help="Liệt kê các micro khả dụng rồi thoát")
     args = parser.parse_args()
+
+    if args.list_devices:
+        list_input_devices()
+        return
+
+    if args.device:
+        idx = resolve_device(args.device)
+        sd.default.device = (idx, sd.default.device[1])
+        print(f"Micro đã chọn: [{idx}] {sd.query_devices(idx)['name'].splitlines()[0]}",
+              file=sys.stderr)
 
     print(f"Thiết bị: {get_device_info()}", file=sys.stderr)
     if args.seconds:
