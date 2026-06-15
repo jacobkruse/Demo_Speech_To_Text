@@ -20,6 +20,7 @@ import queue
 import sys
 from pathlib import Path
 
+import librosa
 import numpy as np
 import sounddevice as sd
 
@@ -28,7 +29,9 @@ from transcriber import SAMPLING_RATE, get_device_info, get_pipeline
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-# Ghi ở đúng 16kHz mono mà Whisper cần, nên không phải resample lại
+# Ghi ở tần số gốc của thiết bị (vd 48kHz) rồi resample về 16kHz cho Whisper.
+# Lý do: nhiều mic trên Windows (WASAPI) chỉ chấp nhận tần số gốc, không nhận
+# thẳng 16kHz; ghi sai host API/tần số là nguyên nhân "không thu được tiếng".
 MIN_SAMPLES = int(SAMPLING_RATE * 0.3)  # dưới 0.3s coi như không nói gì
 BLOCK_SEC = 0.1  # độ dài mỗi khối xử lý mức âm lượng
 ONSET_BLOCKS = 3  # cần bấy nhiêu khối to LIÊN TIẾP mới tính là bắt đầu có giọng
@@ -39,9 +42,28 @@ def _rms(block: np.ndarray) -> float:
     return float(np.sqrt(np.mean(block.astype(np.float64) ** 2))) if block.size else 0.0
 
 
+def default_input_device() -> int:
+    """Chọn mic mặc định của WASAPI (giống thiết bị trình duyệt/web app dùng).
+
+    sounddevice mặc định chọn host API MME, trên máy này lại trỏ vào endpoint
+    Realtek không thu được tiếng. WASAPI là host API mà Windows/trình duyệt dùng.
+    """
+    for h in sd.query_hostapis():
+        if "wasapi" in h["name"].lower() and h["default_input_device"] >= 0:
+            return h["default_input_device"]
+    return sd.default.device[0]
+
+
+def device_samplerate(device: int) -> int:
+    """Tần số lấy mẫu gốc của thiết bị (WASAPI bắt buộc dùng đúng tần số này)."""
+    return int(sd.query_devices(device)["default_samplerate"])
+
+
 def record_until_silence(silence_hang: float, max_duration: float,
-                         start_timeout: float) -> np.ndarray:
+                         start_timeout: float, device: int, rec_sr: int) -> np.ndarray:
     """Ghi âm, dừng khi im lặng đủ lâu hoặc khi người dùng bấm Ctrl+C.
+
+    Ghi ở tần số gốc rec_sr của thiết bị; phần resample về 16kHz làm ở main.
 
     - Hiệu chỉnh nền ồn trong ~0.4s đầu để đặt ngưỡng giọng nói.
     - Chỉ tính "có giọng" khi đủ ONSET_BLOCKS khối to liên tiếp (chống ồn nền giật cục
@@ -55,7 +77,7 @@ def record_until_silence(silence_hang: float, max_duration: float,
     print("🎙️  Đang ghi âm... cứ NÓI; im lặng ~{:g}s sẽ tự dừng, "
           "hoặc bấm Ctrl+C để dừng ngay.".format(silence_hang), file=sys.stderr)
     q: queue.Queue = queue.Queue()
-    blocksize = int(SAMPLING_RATE * BLOCK_SEC)
+    blocksize = int(rec_sr * BLOCK_SEC)
 
     def callback(indata, _frames, _time, status):
         if status:
@@ -72,7 +94,7 @@ def record_until_silence(silence_hang: float, max_duration: float,
     waited = 0.0
     elapsed = 0.0
 
-    with sd.InputStream(samplerate=SAMPLING_RATE, channels=1, dtype="float32",
+    with sd.InputStream(samplerate=rec_sr, channels=1, dtype="float32", device=device,
                         blocksize=blocksize, callback=callback):
         try:
             while True:
@@ -81,8 +103,7 @@ def record_until_silence(silence_hang: float, max_duration: float,
                 except queue.Empty:
                     continue
                 frames.append(block)
-                dur = len(block) / SAMPLING_RATE
-                elapsed += dur
+                dur = len(block) / rec_sr
                 level = _rms(block)
 
                 if threshold is None:  # đang hiệu chỉnh nền ồn
@@ -158,11 +179,11 @@ def resolve_device(spec: str) -> int:
                      f"Chạy --list-devices để xem danh sách.")
 
 
-def record_seconds(seconds: float) -> np.ndarray:
-    """Ghi âm cố định N giây."""
+def record_seconds(seconds: float, device: int, rec_sr: int) -> np.ndarray:
+    """Ghi âm cố định N giây ở tần số gốc rec_sr."""
     print(f"🎙️  Đang ghi âm {seconds:g}s... NÓI đi.", file=sys.stderr)
-    audio = sd.rec(int(seconds * SAMPLING_RATE), samplerate=SAMPLING_RATE,
-                   channels=1, dtype="float32")
+    audio = sd.rec(int(seconds * rec_sr), samplerate=rec_sr,
+                   channels=1, dtype="float32", device=device)
     sd.wait()
     return audio.flatten()
 
@@ -191,17 +212,22 @@ def main() -> None:
         list_input_devices()
         return
 
-    if args.device:
-        idx = resolve_device(args.device)
-        sd.default.device = (idx, sd.default.device[1])
-        print(f"Micro đã chọn: [{idx}] {sd.query_devices(idx)['name'].splitlines()[0]}",
-              file=sys.stderr)
-
+    # Chọn mic: --device nếu có, không thì mic mặc định của WASAPI (như web app)
+    device = resolve_device(args.device) if args.device else default_input_device()
+    rec_sr = device_samplerate(device)
+    print(f"Micro: [{device}] {sd.query_devices(device)['name'].splitlines()[0]} "
+          f"@ {rec_sr} Hz", file=sys.stderr)
     print(f"Thiết bị: {get_device_info()}", file=sys.stderr)
+
     if args.seconds:
-        audio = record_seconds(args.seconds)
+        audio = record_seconds(args.seconds, device, rec_sr)
     else:
-        audio = record_until_silence(args.silence, args.max, args.start_timeout)
+        audio = record_until_silence(args.silence, args.max, args.start_timeout,
+                                     device, rec_sr)
+
+    # Resample về 16kHz cho Whisper (đã ghi ở tần số gốc của thiết bị)
+    if audio.size and rec_sr != SAMPLING_RATE:
+        audio = librosa.resample(audio, orig_sr=rec_sr, target_sr=SAMPLING_RATE)
 
     if audio.size < MIN_SAMPLES:
         print("⚠️  Không ghi được âm thanh (quá ngắn hoặc sai micro mặc định).",
