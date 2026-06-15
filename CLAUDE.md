@@ -51,6 +51,11 @@ có web UI Gradio, CLI, và đọc chính tả từ micro. Xem README.md cho hư
   RMS) hoặc Ctrl+C (là tín hiệu, không phải phím đọc stdin).
 - Audio decode bằng librosa/soundfile (không cần ffmpeg) cho wav/mp3/flac/ogg/m4a;
   file video thì phải trích audio bằng ffmpeg trước. Ghi âm dùng `sounddevice`.
+- **Ghi âm micro (dictate.py):** `sounddevice` mặc định chọn host API **MME**, trên máy này
+  trỏ vào endpoint Realtek **không thu được tiếng** (RMS ~0.002). Web app (trình duyệt) chạy
+  được vì dùng **WASAPI** ở **tần số gốc 48kHz**. Vì vậy dictate.py chọn default input của
+  WASAPI rồi ghi ở 48kHz và resample về 16kHz (WASAPI không nhận thẳng 16kHz: lỗi -9997).
+  Đã test thu được giọng OK. Có `--list-devices` / `--device` nếu cần đổi mic.
 
 ## Repo
 
