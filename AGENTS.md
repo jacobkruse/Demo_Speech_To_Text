@@ -16,21 +16,20 @@ có web UI Gradio, CLI, và đọc chính tả từ micro. Xem README.md cho hư
 - `test_e2e.py` — smoke test (audio TTS tiếng Anh vì Windows không có giọng TTS tiếng Việt;
   `test_audio.wav` bị gitignore, tái tạo bằng PowerShell:
   `Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.SetOutputToWaveFile("test_audio.wav"); $s.Speak("Hello, this is a test. " * 6); $s.Dispose()`).
-- Skill Claude Code `transcribe-vietnamese` tại `.claude/skills/` — đã chạy thử OK (tự kích
-  hoạt, phiên âm file + đọc chính tả). Bản song song cho Codex ở `AGENTS.md` + `.agents/skills/`.
+- Skill Codex `transcribe-vietnamese` tại `.agents/skills/` — đồng bộ với bản Claude Code ở
+  `.claude/skills/`. Đã chạy thử OK (phiên âm file + đọc chính tả).
 
 **Việc còn lại (đều tùy chọn):**
 
-1. Dùng skill ở mọi project: copy `.claude/skills/transcribe-vietnamese/` sang `~\.claude\skills\`
-   và đổi lệnh trong SKILL.md sang đường dẫn tuyệt đối của repo.
-2. Dùng skill-creator (`/skill-creator`) chạy eval + tối ưu `description` cho việc tự kích hoạt
-   (đã chọn hướng "test nhanh" thay vì eval đầy đủ).
+1. Dùng skill ở mọi project: copy `.agents/skills/transcribe-vietnamese/` sang vị trí skill
+   global của Codex và đổi lệnh trong SKILL.md sang đường dẫn tuyệt đối của repo.
+2. Chạy eval + tối ưu `description` cho việc tự kích hoạt (đã chọn hướng "test nhanh").
 
 ## Cách dùng nhanh
 
 - Phiên âm file: `& ".venv\Scripts\python.exe" transcriber.py "audio.mp3" --output kq.txt`
-- Đọc chính tả (trong Claude Code): gõ `!.venv/Scripts/python dictate.py` → nói → ngừng ~2s
-  (hoặc Ctrl+C) → text vào thẳng hội thoại.
+- Đọc chính tả: chạy `.venv\Scripts\python dictate.py -o ghichu.txt` trong terminal, nói →
+  ngừng ~2s (hoặc Ctrl+C) → đọc `ghichu.txt`.
 - Web UI: `& ".venv\Scripts\python.exe" app.py` → http://127.0.0.1:7860
 
 ## Bẫy kỹ thuật đã gặp (tránh mất thời gian lại)
@@ -45,10 +44,10 @@ có web UI Gradio, CLI, và đọc chính tả từ micro. Xem README.md cho hư
 - **Console Windows mặc định cp1252** không in được tiếng Việt → code có
   `sys.stdout.reconfigure(encoding="utf-8")`; chạy script khác in tiếng Việt thì đặt
   `$env:PYTHONUTF8 = "1"`.
-- **Tiền tố `!` của Claude Code chạy trong bash (Git Bash):** đường dẫn phải dùng gạch chéo
-  xuôi `/` (bash nuốt mất `\`), và tiến trình KHÔNG có stdin tương tác (input()→EOFError).
-  Vì vậy `dictate.py` không dùng "bấm ENTER để dừng" mà dừng theo im lặng (VAD đơn giản theo
-  RMS) hoặc Ctrl+C (là tín hiệu, không phải phím đọc stdin).
+- **`dictate.py` không dùng "bấm ENTER để dừng":** khi chạy không có stdin tương tác,
+  `input()` ném EOFError. Vì vậy dừng theo im lặng (VAD đơn giản theo RMS) hoặc Ctrl+C
+  (là tín hiệu, không phải phím đọc stdin). Nếu chạy qua một shell wrapper (vd tiền tố `!`
+  của Claude Code) thì đường dẫn dùng gạch chéo xuôi `/` vì wrapper chạy trong bash.
 - Audio decode bằng librosa/soundfile (không cần ffmpeg) cho wav/mp3/flac/ogg/m4a;
   file video thì phải trích audio bằng ffmpeg trước. Ghi âm dùng `sounddevice`.
 
