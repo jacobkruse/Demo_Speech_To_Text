@@ -13,6 +13,7 @@ test_audio.wav
 # Kết quả phiên âm sinh khi chạy thử
 ket_qua_phien_am.txt
 ghichu.txt
+dictation_out.txt
 
 # Cache model Hugging Face (nếu lỡ đặt trong project)
 .cache/
