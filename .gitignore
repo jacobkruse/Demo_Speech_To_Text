@@ -10,5 +10,9 @@ __pycache__/
 # File audio test sinh tự động (tạo lại bằng TTS, xem README)
 test_audio.wav
 
+# Kết quả phiên âm sinh khi chạy thử
+ket_qua_phien_am.txt
+ghichu.txt
+
 # Cache model Hugging Face (nếu lỡ đặt trong project)
 .cache/
