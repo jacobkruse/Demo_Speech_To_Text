@@ -49,6 +49,11 @@ văn bản tiếng Việt hiện ra; Claude đọc và xử lý tiếp. Biến t
 Nếu người dùng than "bắt không hết câu": họ ngắt giữa câu lâu hơn thời lặng nên bị dừng sớm —
 khuyên dùng `--silence 3` (hoặc cao hơn), hoặc bấm Ctrl+C khi nói xong.
 
+Nếu dictate.py báo "Không nghe rõ giọng"/"Không nghe thấy giọng nói": gần như không có tiếng
+nói (do nói quá nhỏ, nói trễ, hoặc sai micro). Script cố ý KHÔNG phiên âm trong trường hợp này
+để tránh Whisper "ảo giác" ra câu rác (vd "Hãy subscribe cho kênh..."). Khuyên người dùng nói
+to/rõ và bắt đầu nói ngay sau dòng "Đang ghi âm", rồi thử lại.
+
 Lưu ý: KHÔNG tự chạy `dictate.py` qua Bash/PowerShell hộ người dùng để "đọc thay" — nó cần
 giọng nói thật từ micro của họ. Nếu cần Claude tự kích hoạt ghi âm (hiếm), chỉ nhánh
 `--seconds N` mới hợp lý.

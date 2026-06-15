@@ -43,6 +43,11 @@ Nếu người dùng than "bắt không hết câu": họ ngắt giữa câu lâ
 khuyên dùng `--silence 3` (hoặc cao hơn), hoặc bấm Ctrl+C khi nói xong. `dictate.py` cần giọng
 nói thật từ micro của người dùng, nên để họ tự chạy lệnh chứ đừng chạy thay để "đọc hộ".
 
+Nếu dictate.py báo "Không nghe rõ giọng"/"Không nghe thấy giọng nói": gần như không có tiếng
+nói (do nói quá nhỏ, nói trễ, hoặc sai micro). Script cố ý KHÔNG phiên âm trong trường hợp này
+để tránh Whisper "ảo giác" ra câu rác (vd "Hãy subscribe cho kênh..."). Khuyên người dùng nói
+to/rõ và bắt đầu nói ngay sau dòng "Đang ghi âm", rồi thử lại.
+
 ## Lưu ý khi chạy
 
 - **Timeout**: đặt timeout tối thiểu 300000ms (5 phút). Mỗi lần gọi phải load model từ cache
