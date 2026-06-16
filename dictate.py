@@ -20,11 +20,13 @@ import queue
 import sys
 from pathlib import Path
 
-import librosa
 import numpy as np
 import sounddevice as sd
 
-from transcriber import SAMPLING_RATE, get_device_info, get_pipeline
+# CỐ Ý không import torch/transformers/librosa ở đây. Chúng nặng (vài giây) và
+# chỉ cần khi phiên âm. Import sớm sẽ khiến prompt "Đang ghi âm" hiện chậm. Phần
+# transcribe nạp chúng lazy ở main, ngay sau khi đã ghi xong (chạy nền lúc đang nói).
+SAMPLING_RATE = 16000  # 16kHz mono là định dạng Whisper cần
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
@@ -217,16 +219,24 @@ def main() -> None:
     rec_sr = device_samplerate(device)
     print(f"Micro: [{device}] {sd.query_devices(device)['name'].splitlines()[0]} "
           f"@ {rec_sr} Hz", file=sys.stderr)
-    print(f"Thiết bị: {get_device_info()}", file=sys.stderr)
 
+    # Ghi âm NGAY (chưa đụng tới torch/transformers nên prompt hiện gần như tức thì)
     if args.seconds:
         audio = record_seconds(args.seconds, device, rec_sr)
     else:
         audio = record_until_silence(args.silence, args.max, args.start_timeout,
                                      device, rec_sr)
 
+    if audio.size == 0:  # các hàm ghi âm đã in lý do (không nghe giọng / im lặng)
+        sys.exit(1)
+
+    # Giờ mới nạp thư viện nặng (đã ghi xong; không bắt người dùng chờ lúc đầu)
+    print("Đang nạp model & phiên âm...", file=sys.stderr)
+    import librosa
+    from transcriber import get_device_info, get_pipeline
+
     # Resample về 16kHz cho Whisper (đã ghi ở tần số gốc của thiết bị)
-    if audio.size and rec_sr != SAMPLING_RATE:
+    if rec_sr != SAMPLING_RATE:
         audio = librosa.resample(audio, orig_sr=rec_sr, target_sr=SAMPLING_RATE)
 
     if audio.size < MIN_SAMPLES:
@@ -234,7 +244,8 @@ def main() -> None:
               file=sys.stderr)
         sys.exit(1)
 
-    print(f"Đã ghi {audio.size / SAMPLING_RATE:.1f}s. Đang phiên âm...", file=sys.stderr)
+    print(f"Đã ghi {audio.size / SAMPLING_RATE:.1f}s ({get_device_info()}).",
+          file=sys.stderr)
     pipe = get_pipeline()
     result = pipe(
         {"array": audio, "sampling_rate": SAMPLING_RATE},
